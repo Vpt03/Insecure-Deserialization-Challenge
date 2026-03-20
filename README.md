@@ -51,11 +51,11 @@ The attacker exploited this using a CommonsCollections6 gadget chain via ysoseri
 
 | # | Bypass Method | Mechanism |
 |---|---|---|
-| 1 | **Alternative gadget chains** | Spring1, Groovy1, JRE8u20 use different class names the blocklist has never seen — they pass right through |
+| 1 | **Alternative gadget chains** | Spring1, Groovy1, JRE8u20 use different class names the blocklist has never seen they pass right through |
 | 2 | **Class name spoofing** | A custom class `com.example.SessionToken extends LazyMap` passes the string match but inherits dangerous `readObject()` behaviour |
-| 3 | **Nested object gap** | A CC6 chain embedded inside a `java.util.HashMap` — outer class passes, dangerous inner objects deserialize uninspected |
-| 4 | **Alternative formats** | XStream XML, Hessian, Kryo use entirely separate deserialization paths — the filter is never invoked on them |
-| 5 | **Other endpoints** | JAX-RS, JMX, RMI, custom session managers all call `ObjectInputStream.readObject()` independently — filter only covers one endpoint |
+| 3 | **Nested object gap** | A CC6 chain embedded inside a `java.util.HashMap` outer class passes, dangerous inner objects deserialize uninspected |
+| 4 | **Alternative formats** | XStream XML, Hessian, Kryo use entirely separate deserialization paths the filter is never invoked on them |
+| 5 | **Other endpoints** | JAX-RS, JMX, RMI, custom session managers all call `ObjectInputStream.readObject()` independently filter only covers one endpoint |
 
 ---
 
@@ -63,13 +63,13 @@ The attacker exploited this using a CommonsCollections6 gadget chain via ysoseri
 
 - **All malicious payloads blocked** — every exploit payload including bypass attempts must be rejected before deserialization and return HTTP 400
 - **No outbound callbacks** — payloads designed to trigger DNS or HTTP pings must produce nothing while legitimate objects still work normally
-- **Consistent rejection response** — status code, body, and timing must match expectations — unusual delays indicate partial deserialization before rejection
+- **Consistent rejection response** — status code, body, and timing must match expectations unusual delays indicate partial deserialization before rejection
 
 ---
 
 ### Does Upgrading Commons Collections to 4.1 Fix Everything?
 
-**No.** The upgrade breaks well-known CC gadget chains by restricting `InvokerTransformer`. That is a positive step — but the application is still deserializing untrusted data. That is the actual vulnerability.
+**No.** The upgrade breaks well-known CC gadget chains by restricting `InvokerTransformer`. That is a positive step but the application is still deserializing untrusted data. That is the actual vulnerability.
 
 Spring, Groovy, and standard JRE classes all have their own gadget chains in ysoserial. The upgrade removes one attack path. The real fix is to either stop deserializing untrusted data entirely, or use Java's `ObjectInputFilter` to allowlist only expected classes.
 
@@ -83,15 +83,15 @@ Spring, Groovy, and standard JRE classes all have their own gadget chains in yso
 | Test ID | Category | Payload | Encoding | Data | Patched Result | Vulnerable Result | Pass Condition |
 |---|---|---|---|---|---|---|---|
 | **TC-01** | Original Replay | CommonsCollections6 gadget chain | hex | `aced000573720001` | ✅ HTTP 400 — PASS | ❌ HTTP 200 + 6s + OOB | Non-2xx AND no OOB callback |
-| **TC-02** | Benign Control | `java.lang.Long` safe object | base64 | `rO0ABXNyAA5qYXZhLmxhbmcuTG9uZzs=` | ✅ HTTP 200 — PASS | ✅ HTTP 200 — PASS | HTTP 200 AND no OOB — fix must not break safe objects |
-| **TC-03** | Malformed Stream | Invalid magic bytes — not Java | hex | `deadbeef0001` | ✅ HTTP 400 — PASS | ✅ HTTP 400 — PASS | Non-2xx AND no OOB — garbage rejected at stream level |
-| **TC-04** ⚠️ | Alt Gadget Chain | Spring gadget chain — no CC dependency | hex | `aced000573720002` | ❌ HTTP 200 + 6s + OOB — **FAIL** | ❌ HTTP 200 + 6s + OOB | **FAIL confirms fix is incomplete** — Spring not blocked |
-| **TC-05** ⭐ | Alt Gadget Chain | Groovy1 gadget chain | hex | `aced000573720003` | HTTP 400 expected | HTTP 200 + OOB | Validates Groovy chains also blocked — not just CC and Spring |
+| **TC-02** | Benign Control | `java.lang.Long` safe object | base64 | `rO0ABXNyAA5qYXZhLmxhbmcuTG9uZzs=` | ✅ HTTP 200 — PASS | ✅ HTTP 200 — PASS | HTTP 200 AND no OOB fix must not break safe objects |
+| **TC-03** | Malformed Stream | Invalid magic bytes — not Java | hex | `deadbeef0001` | ✅ HTTP 400 — PASS | ✅ HTTP 400 — PASS | Non-2xx AND no OOB garbage rejected at stream level |
+| **TC-04** ⚠️ | Alt Gadget Chain | Spring gadget chain — no CC dependency | hex | `aced000573720002` | ❌ HTTP 200 + 6s + OOB — **FAIL** | ❌ HTTP 200 + 6s + OOB | **FAIL confirms fix is incomplete** Spring not blocked |
+| **TC-05** ⭐ | Alt Gadget Chain | Groovy1 gadget chain | hex | `aced000573720003` | HTTP 400 expected | HTTP 200 + OOB | Validates Groovy chains also blocked not just CC and Spring |
 | **TC-06** ⭐ | Malformed Stream | Truncated — valid magic, no body | hex | `aced0005` | HTTP 400 expected | HTTP 400 or 500 | Server handles partial streams safely without crashing |
-| **TC-07** ⭐ | Wrong Header | CC6 bytes with `Content-Type: application/json` | hex | `aced000573720001` | HTTP 415 expected | HTTP 415 or 200 | Server enforces Content-Type before deserializing |
+| **TC-07** ⭐ | Wrong Header | CC6 bytes with `Content-Type: application/json` | hex | `aced000573720001` | HTTP 415 expected | HTTP 415 or 200 | Server enforces Content Type before deserializing |
 | **TC-08** ⭐ | Oversized Payload | Valid magic + 100 junk bytes + CC6 marker | hex | `aced000541..73720001` | HTTP 400 expected | HTTP 200 | Server enforces size limits before any processing |
 
-> ⚠️ TC-04 is the key finding — Spring chain bypasses the fix in patched mode
+> ⚠️ TC-04 is the key finding Spring chain bypasses the fix in patched mode
 > ⭐ Additional test cases extending beyond the minimum specification
 
 ---
@@ -114,7 +114,7 @@ triggered by monitoring for an out-of-band DNS or HTTP callback to a canary doma
 
 | # | Prompt | Why I Asked | Result |
 |---|---|---|---|
-| 2 | "Can I create a server and send it to test this properly?" | httpbin always returns 200 — no Java logic — results meaningless | Built `fake_server.py` with patched and vulnerable modes |
+| 2 | "Can I create a server and send it to test this properly?" | httpbin always returns 200 and no Java logic results meaningless | Built `fake_server.py` with patched and vulnerable modes |
 | 3 | "OOB for TC-04 shows NO but should be YES — why?" | Raw AI output missed confirmed RCE entirely | Polling loop + local OOB collector on port 8889 |
 | 4 | "Explain what each function does and why" | Needed full understanding before writing critique | Confirmed understanding of polling, correlation, timing |
 
@@ -132,7 +132,7 @@ No callback for TC-03
 No callback for TC-04   ← TC-04 triggered RCE but function missed it entirely
 ```
 
-TC-04 caused a 6-second delay and server logs showed the Spring chain executed — confirmed RCE — yet the function said no callback. This is the proof it was broken.
+TC-04 caused a 6-second delay and server logs showed the Spring chain executed and confirmed RCE yet the function said no callback. This is the proof it was broken.
 
 ---
 
@@ -140,10 +140,10 @@ TC-04 caused a 6-second delay and server logs showed the Spring chain executed �
 
 | # | Flaw | Code | Problem |
 |---|---|---|---|
-| 1 | Wrong detection channel | `if canary_domain in response.text` | OOB callbacks never appear in HTTP response body — separate DNS/HTTP channel |
-| 2 | No polling window | Synchronous one-shot check | DNS callbacks arrive 10–30s later due to TTL — always missed |
+| 1 | Wrong detection channel | `if canary_domain in response.text` | OOB callbacks never appear in HTTP response body separate DNS/HTTP channel |
+| 2 | No polling window | Synchronous one-shot check | DNS callbacks arrive 10–30s later due to TTL always missed |
 | 3 | No correlation | Same canary for all payloads | Cannot tell which of 500 payloads triggered which callback |
-| 4 | No timing detection | Response time never measured | Gadget chain deserialization takes 5s+ — key signal discarded |
+| 4 | No timing detection | Response time never measured | Gadget chain deserialization takes 5s+ key signal discarded |
 | 5 | No status code check | HTTP status never compared | Server returning 200 instead of 400 not flagged as anomaly |
 | 6 | Deser vs execution | No signal distinction | Safe deserialization and RCE execution treated identically |
 
@@ -156,7 +156,7 @@ TC-04 caused a 6-second delay and server logs showed the Spring chain executed �
 ```
 Fix 1+2  →  _poll_oob() polls separate collector endpoint for 12s, every 2s
 Fix 3    →  Payload ID in User-Agent header as correlation token
-Fix 4    →  time.monotonic() measures elapsed — flags anything over 5s
+Fix 4    →  time.monotonic() measures elapsed flags anything over 5s
 Fix 5    →  Status code compared against expected_rejection_code (400)
 Fix 6    →  Timing = deserialization likely | OOB = execution confirmed
 ```
